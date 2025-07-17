@@ -7,45 +7,27 @@ use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\DB;
 use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
 use Symbiote\QueuedJobs\Services\QueuedJob;
+use Symbiote\QueuedJobs\Services\QueuedJobService;
 use Symbiote\SteamedClams\ClamAV;
 use Symbiote\SteamedClams\Tasks\ClamAVScanTask;
-use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 if (class_exists(AbstractQueuedJob::class)) {
-
     class ClamAVScanJob extends AbstractQueuedJob
     {
         /**
-         * Disable queueing on dev/build
-         * @var bool
+         * Disable queueing on dev/build.
          */
-        private static $disable_queue_on_devbuild = false;
+        private static bool $disable_queue_on_devbuild = false;
 
         /**
          * Repeat at daily by default (in seconds).
-         * @var int
          */
-        private static $repeat_time = 86400;
+        private static int $repeat_time = 86400;
 
         /**
-         * Repeat at 2am by default
-         * @var string
+         * Repeat at 2am by default.
          */
-        private static $time = '02:00:00';
-
-        /**
-         * NOTE: Called from ClamAVScan::requireDefaultRecords (2016-12-01)
-         */
-        public function requireDefaultRecords()
-        {
-            if (Config::inst()->get(__CLASS__, 'disable_queue_on_devbuild')) {
-                return;
-            }
-            $jobDescriptorID = $this->queueMyselfIfNeeded();
-            if ($jobDescriptorID !== null) {
-                DB::alteration_message('Queued ClamAVScanJob #' . $jobDescriptorID, 'created');
-            }
-        }
+        private static string $time = '02:00:00';
 
         public function setup()
         {
@@ -54,6 +36,20 @@ if (class_exists(AbstractQueuedJob::class)) {
             // Recommended for long running jobs that don't increment 'currentStep'
             // https://github.com/symbiote/silverstripe-queuedjobs
             $this->currentStep = -1;
+        }
+
+        /**
+         * NOTE: Called from ClamAVScan::requireDefaultRecords (2016-12-01).
+         */
+        public function requireDefaultRecords(): void
+        {
+            if (Config::inst()->get(__CLASS__, 'disable_queue_on_devbuild')) {
+                return;
+            }
+            $jobDescriptorID = $this->queueMyselfIfNeeded();
+            if ($jobDescriptorID !== null) {
+                DB::alteration_message('Queued ClamAVScanJob #' . $jobDescriptorID, 'created');
+            }
         }
 
         /**
@@ -88,11 +84,8 @@ if (class_exists(AbstractQueuedJob::class)) {
 
         /**
          * Add this job if there are files to scan for viruses.
-         *
-         * @var int|null
-         * @return null
          */
-        public function queueMyselfIfNeeded()
+        public function queueMyselfIfNeeded(): ?int
         {
             // NOTE(Jake): Perhaps add '$cache' flag here to stop
             // thrashing in ClamAVScan::onAfterWrite()
@@ -106,12 +99,9 @@ if (class_exists(AbstractQueuedJob::class)) {
         }
 
         /**
-         * Add this job to the queue at the desired times
-         *
-         * @var int|null
-         * @return null
+         * Add this job to the queue at the desired times.
          */
-        public function queueMyself()
+        public function queueMyself(): ?int
         {
             $repeat_time = Config::inst()->get(__CLASS__, 'repeat_time');
             if (!$repeat_time) {
@@ -122,12 +112,11 @@ if (class_exists(AbstractQueuedJob::class)) {
                 return null;
             }
 
-            $class = get_class();
+            $class = __CLASS__;
             $nextJob = new $class();
             $job = Injector::inst()->get(QueuedJobService::class);
-            $jobDescriptorID = $job->queueJob($nextJob, date('Y-m-d', time() + $repeat_time) . ' ' . $time);
 
-            return $jobDescriptorID;
+            return $job->queueJob($nextJob, date('Y-m-d', time() + $repeat_time) . ' ' . $time);
         }
     }
 }

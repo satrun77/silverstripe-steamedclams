@@ -14,13 +14,12 @@ use SilverStripe\Security\Member;
 use Symbiote\SteamedClams\Model\ClamAVScan;
 
 /**
- * Class ClamAVScanReport
+ * Class ClamAVScanReport.
  *
  * This report gives the option to select certain date ranges and view who uploaded what kind of file
  */
 class ClamAVScanReport extends Report
 {
-
     /**
      * @return string
      */
@@ -39,14 +38,14 @@ class ClamAVScanReport extends Report
                 $startDate = DateField::create('Created:LessThan', _t('ClamAV.FROM_DATE', 'From date')),
                 $endDate = DateField::create('Created:GreaterThan', _t('ClamAV.TO_DATE', 'To date')),
                 $scanned = DropdownField::create('IsScanned', _t('ClamAV.IS_SCANNED', 'Is scanned'), [
-                    true  => 'Yes',
+                    true => 'Yes',
                     false => 'No',
                 ]),
                 $action = DropdownField::create(
                     'Action',
                     _t('ClamAV.ACTION_TAKEN', 'Action taken'),
                     [
-                        ClamAVScan::ACTION_NONE    => _t('ClamAV.ACTION_TAKEN.NONE', 'No action taken'),
+                        ClamAVScan::ACTION_NONE => _t('ClamAV.ACTION_TAKEN.NONE', 'No action taken'),
                         ClamAVScan::ACTION_DELETED => _t('ClamAV.ACTION_TAKEN.DELETED', 'File deleted'),
                         ClamAVScan::ACTION_IGNORED => _t('ClamAV.ACTION_TAKEN.IGNORED', 'File ignored'),
                     ]
@@ -81,7 +80,8 @@ class ClamAVScanReport extends Report
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
+     *
      * @return FieldList
      */
     public function getCMSFields()
@@ -98,18 +98,19 @@ class ClamAVScanReport extends Report
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
+     *
      * @return array
      */
     public function columns()
     {
         return [
-            'UserIdentifier'   => _t('ClamAV.USER_IDENTIFIER', 'User Identifier'),
-            'Created'          => _t('ClamAV.DATE_SCANNED', 'Date Scanned'),
-            'File.Title'       => _t('ClamAV.FILE_NAME', 'File Name'),
+            'UserIdentifier' => _t('ClamAV.USER_IDENTIFIER', 'User Identifier'),
+            'Created' => _t('ClamAV.DATE_SCANNED', 'Date Scanned'),
+            'File.Title' => _t('ClamAV.FILE_NAME', 'File Name'),
             'LocationUploaded' => _t('ClamAV.LOCATION_UPLOADED', 'Location Uploaded'),
-            'StateMessage'     => _t('ClamAV.STATE', 'State'),
-            'RawDataSummary'   => _t('ClamAV.INFO', 'Virus Scan Info.'),
+            'StateMessage' => _t('ClamAV.STATE', 'State'),
+            'RawDataSummary' => _t('ClamAV.INFO', 'Virus Scan Info.'),
         ];
     }
 

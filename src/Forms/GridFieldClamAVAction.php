@@ -16,10 +16,7 @@ use Symbiote\SteamedClams\Model\ClamAVScan;
 
 class GridFieldClamAVAction implements GridField_ColumnProvider, GridField_ActionProvider
 {
-    /**
-     * @var ClamAV
-     */
-    protected $clamAV = null;
+    protected ?ClamAV $clamAV = null;
 
     /**
      * {@inheritdoc}
@@ -75,6 +72,7 @@ class GridFieldClamAVAction implements GridField_ColumnProvider, GridField_Actio
         if (!$record->exists()) {
             return;
         }
+
         switch ($columnName) {
             case 'Actions':
                 $state = $record->State;
@@ -107,8 +105,8 @@ class GridFieldClamAVAction implements GridField_ColumnProvider, GridField_Actio
                 }
 
                 return $fieldList->forTemplate();
-                break;
 
+                break;
             /*case 'clamav_ignore':
                 $state = $record->State;
                 if ($state !== ClamAVScan::STATE_INFECTED && $state !== ClamAVScan::STATE_UNSCANNED) {
@@ -127,19 +125,18 @@ class GridFieldClamAVAction implements GridField_ColumnProvider, GridField_Actio
 
             default:
                 throw new LogicException('Unsupported column name "' . $columnName . '"');
+
                 break;
         }
     }
 
     /**
-     * Handle the actions and apply any changes to the GridField
+     * Handle the actions and apply any changes to the GridField.
      *
      * @param GridField $gridField
      * @param string $actionName
      * @param mixed $arguments
      * @param array $data - form data
-     *
-     * @return void
      */
     public function handleAction(GridField $gridField, $actionName, $arguments, $data)
     {
@@ -147,6 +144,7 @@ class GridFieldClamAVAction implements GridField_ColumnProvider, GridField_Actio
         if (!in_array($actionName, $actions)) {
             return;
         }
+
         switch ($actionName) {
             case 'clamav_scan':
                 $record = $gridField->getList()->byID($arguments['RecordID']);
@@ -161,6 +159,7 @@ class GridFieldClamAVAction implements GridField_ColumnProvider, GridField_Actio
                 $this->notify('Unable to scan file.');
 
                 return;
+
                 break;
 
             case 'clamav_ignore':
@@ -176,10 +175,12 @@ class GridFieldClamAVAction implements GridField_ColumnProvider, GridField_Actio
                 $this->notify('Ignored file.');
 
                 return;
+
                 break;
 
             default:
                 throw new LogicException('Invalid action "' . $actionName . '".');
+
                 break;
         }
     }
@@ -193,15 +194,15 @@ class GridFieldClamAVAction implements GridField_ColumnProvider, GridField_Actio
     }
 
     /**
-     * Notify end user of the result of an action
+     * Notify end user of the result of an action.
      *
      * @param string $message
      *
-     * @return boolean
+     * @return bool
      */
     protected function notify($message)
     {
-        $controller = Controller::has_curr() ? Controller::curr() : null;
+        $controller = Controller::curr();
         if (!$controller) {
             return;
         }

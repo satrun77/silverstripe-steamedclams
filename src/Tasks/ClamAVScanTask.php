@@ -2,41 +2,35 @@
 
 namespace Symbiote\SteamedClams\Tasks;
 
-use SilverStripe\Control\HTTPRequest;
+use SilverStripe\Dev\BuildTask;
+use SilverStripe\PolyExecution\PolyOutput;
+use Symbiote\SteamedClams\Tasks\Traits\ClamAVTrait;
+use Symbiote\SteamedClams\Tasks\Traits\LogTrait;
+use Symbiote\SteamedClams\Tasks\Traits\ScanTrait;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
 
-class ClamAVScanTask extends ClamAVBaseTask
+class ClamAVScanTask extends BuildTask
 {
-    /**
-     * @var string
-     */
-    protected $title = 'ClamAV Virus Scan Task';
+    use ClamAVTrait;
+    use LogTrait;
+    use ScanTrait;
 
-    /**
-     * @var string
-     */
-    protected $description = 'Scans files missed due to ClamAV daemon being unavailable at time of file upload.';
+    protected static string $commandName = 'clamav-scan';
 
-    /**
-     * Limit the `File` lists for testing purposes
-     */
-    protected $debug_limit = 0;
+    protected string $title = 'ClamAV Virus Scan Task';
 
-    /**
-     * @param HTTPRequest $request
-     * @param null $job
-     *
-     * @return bool|void
-     * @throws \Exception
-     */
-    public function run($request, $job = null)
+    protected static string $description = 'Scans files missed due to ClamAV daemon being unavailable at time of file upload.';
+
+    protected function execute(InputInterface $input, PolyOutput $output): int
     {
-        if (parent::run($request, $job) === false) {
-            return;
+        if (!$this->isOnline()) {
+            return Command::INVALID;
         }
 
         $this->log('Starting ClamAV task...');
 
-        $list = $this->clamAV->getFailedToScanFileList();
+        $list = $this->getClamAV()->getFailedToScanFileList();
         $listCount = $list->count();
         if ($listCount > 0) {
             $this->log('------------------------------------');
@@ -48,5 +42,7 @@ class ClamAVScanTask extends ClamAVBaseTask
         } else {
             $this->log('Finished ClamAV task. No action was required.');
         }
+
+        return Command::SUCCESS;
     }
 }

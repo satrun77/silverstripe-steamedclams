@@ -2,42 +2,35 @@
 
 namespace Symbiote\SteamedClams\Tasks;
 
+use SilverStripe\Dev\BuildTask;
+use SilverStripe\PolyExecution\PolyOutput;
+use Symbiote\SteamedClams\Tasks\Traits\ClamAVTrait;
+use Symbiote\SteamedClams\Tasks\Traits\LogTrait;
+use Symbiote\SteamedClams\Tasks\Traits\ScanTrait;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
 
-use SilverStripe\Control\HTTPRequest;
-
-class ClamAVInstallTask extends ClamAVBaseTask
+class ClamAVInstallTask extends BuildTask
 {
-    /**
-     * @var string
-     */
-    protected $title = 'ClamAV Virus Install Task';
+    use ClamAVTrait;
+    use LogTrait;
+    use ScanTrait;
 
-    /**
-     * @var string
-     */
-    protected $description = 'Scans all files that haven\'t been scanned yet and aren\'t queued for later scanning.';
+    protected static string $commandName = 'clamav-install';
 
-    /**
-     * Limit the `File` lists for testing purposes
-     */
-    protected $debug_limit = 0;
+    protected string $title = 'ClamAV Virus Install Task';
 
-    /**
-     * @param HTTPRequest $request
-     * @param null $job
-     *
-     * @return bool|void
-     * @throws \Exception
-     */
-    public function run($request, $job = null)
+    protected static string $description = 'Scans all files that haven\'t been scanned yet and aren\'t queued for later scanning.';
+
+    protected function execute(InputInterface $input, PolyOutput $output): int
     {
-        if (parent::run($request, $job) === false) {
-            return;
+        if (!$this->isOnline()) {
+            return Command::INVALID;
         }
 
         $this->log('Starting ClamAV install task...');
 
-        $list = $this->clamAV->getInitialFileToScanList();
+        $list = $this->getClamAV()->getInitialFileToScanList();
         $listCount = $list->count();
         if ($listCount > 0) {
             $this->log('------------------------------------');
@@ -48,5 +41,7 @@ class ClamAVInstallTask extends ClamAVBaseTask
         } else {
             $this->log('Finished ClamAV task. No action was required.');
         }
+
+        return Command::SUCCESS;
     }
 }

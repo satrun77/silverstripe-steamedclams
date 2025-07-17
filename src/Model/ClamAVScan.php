@@ -2,6 +2,7 @@
 
 namespace Symbiote\SteamedClams\Model;
 
+use JsonException;
 use LogicException;
 use Page;
 use SilverStripe\Admin\LeftAndMain;
@@ -9,24 +10,22 @@ use SilverStripe\Assets\File;
 use SilverStripe\CMS\Controllers\ContentController;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\Director;
-use SilverStripe\Core\Convert;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Core\Validation\ValidationException;
 use SilverStripe\Forms\NumericField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBHTMLText;
-use SilverStripe\ORM\ValidationException;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\Security;
-use Symbiote\SteamedClams\Admin\ClamAVAdmin;
 use Symbiote\SteamedClams\Jobs\ClamAVScanJob;
 
 /**
- * Class Symbiote\SteamedClams\ClamAVScan
+ * Class Symbiote\SteamedClams\ClamAVScan.
  *
  * @property string $Filename
  * @property string $ContextURL
- * @property boolean $IsScanned
- * @property boolean $IsInfected
+ * @property bool $IsScanned
+ * @property bool $IsInfected
  * @property int $Action
  * @property string $IPAddress
  * @property array $RawData
@@ -34,55 +33,49 @@ use Symbiote\SteamedClams\Jobs\ClamAVScanJob;
  * @property int $FileID
  * @property int $MemberID
  * @property int $ActionMemberID
- * @method Page ContextPage()
- * @method File File()
+ *
+ * @method Page   ContextPage()
+ * @method File   File()
  * @method Member Member()
  * @method Member ActionMember()
  */
 class ClamAVScan extends DataObject
 {
     // This *should not* be stored in DB, number order can be modified.
-    const STATE_INVALID = 0;
-    const STATE_UNSCANNED = 1;
-    const STATE_INFECTED = 2;
-    const STATE_CLEAN = 3;
-    const STATE_DELETED_INFECTED = 4;
-    const STATE_DELETED_CLEAN = 5;
-    const STATE_DELETED_UNSCANNED = 6;
-    const STATE_IGNORED_INFECTED = 7;
-    const STATE_IGNORED_UNSCANNED = 8;
+    public const STATE_INVALID = 0;
+    public const STATE_UNSCANNED = 1;
+    public const STATE_INFECTED = 2;
+    public const STATE_CLEAN = 3;
+    public const STATE_DELETED_INFECTED = 4;
+    public const STATE_DELETED_CLEAN = 5;
+    public const STATE_DELETED_UNSCANNED = 6;
+    public const STATE_IGNORED_INFECTED = 7;
+    public const STATE_IGNORED_UNSCANNED = 8;
 
     // This is stored in the DB, do not modify number order.
-    const ACTION_NONE = 0;
-    const ACTION_DELETED = 1;
-    const ACTION_IGNORED = 2;
+    public const ACTION_NONE = 0;
+    public const ACTION_DELETED = 1;
+    public const ACTION_IGNORED = 2;
 
     /**
      * {@inheritDoc}
-     * @var string
      */
-    private static $table_name = 'ClamAVScan';
+    private static string $table_name = 'ClamAVScan';
 
-    /**
-     * @var array
-     */
-    private static $db = [
-        'Filename'   => 'Text',
+    private static array $db = [
+        'Filename' => 'Text',
         'ContextURL' => 'Text',
-        'IsScanned'  => 'Boolean',
+        'IsScanned' => 'Boolean',
         'IsInfected' => 'Boolean',
-        'Action'     => 'Int',
-        'IPAddress'  => 'Varchar(20)',
-        'RawData'    => 'Text',
+        'Action' => 'Int',
+        'IPAddress' => 'Varchar(20)',
+        'RawData' => 'Text',
     ];
 
-    /**
-     * @var array
-     */
-    private static $has_one = [
-        'ContextPage'  => Page::class,
-        'File'         => File::class,
-        'Member'       => Member::class,
+    private static array $has_one = [
+        'ContextPage' => Page::class,
+        'File' => File::class,
+        'Member' => Member::class,
         'ActionMember' => Member::class,
         // todo(Jake): Log 'ActionMember', the member who manually ran a 'Scan' or 'Ignore' action.
     ];
@@ -90,109 +83,92 @@ class ClamAVScan extends DataObject
     /**
      * @var array
      */
-    private static $summary_fields = [
-        'UserIdentifier'   => 'User Identifier',
-        'FileID'           => [
-            'title'    => 'File ID',
+    private static array $summary_fields = [
+        'UserIdentifier' => 'User Identifier',
+        'FileID' => [
+            'title' => 'File ID',
             'callback' => [ClamAVScan::class, 'get_file_id_cms_link'],
         ],
-        'Filename'         => 'File Name',
+        'Filename' => 'File Name',
         'LocationUploaded' => 'Location Uploaded',
-        'StateMessage'     => 'State',
-        'RawDataSummary'   => 'Virus Scan Info.',
-        'Created'          => 'Date Scanned',
+        'StateMessage' => 'State',
+        'RawDataSummary' => 'Virus Scan Info.',
+        'Created' => 'Date Scanned',
     ];
 
-    /**
-     * @var array
-     */
-    private static $searchable_fields = [
-        'MemberID'   => [
+    private static array $searchable_fields = [
+        'MemberID' => [
             'title' => 'Member ID',
             'field' => NumericField::class,
         ],
-        'FileID'     => [
+        'FileID' => [
             'title' => 'File ID',
             'field' => NumericField::class,
         ],
-        'IPAddress'  => [
+        'IPAddress' => [
             'title' => 'IP Address',
         ],
-        'Filename'   => [
+        'Filename' => [
             'title' => 'Filename',
         ],
-        'IsScanned'  => [
+        'IsScanned' => [
             'title' => 'Is Scanned?',
         ],
         'IsInfected' => [
             'title' => 'Is Infected?',
         ],
-        'RawData'    => [
+        'RawData' => [
             'title' => 'Virus Scan Info.',
         ],
-        'Created'    => [
+        'Created' => [
             'title' => 'Date Scanned',
         ],
     ];
 
-    /**
-     * @var array
-     */
-    private static $state_messages = [
-        self::STATE_INVALID           => [
-            'type'    => 'bad',
+    private static array $state_messages = [
+        self::STATE_INVALID => [
+            'type' => 'bad',
             'message' => 'Invalid',
         ],
-        self::STATE_UNSCANNED         => [
-            'type'    => 'warning',
+        self::STATE_UNSCANNED => [
+            'type' => 'warning',
             'message' => 'Needs to be scanned',
         ],
-        self::STATE_INFECTED          => [
-            'type'    => 'bad',
+        self::STATE_INFECTED => [
+            'type' => 'bad',
             'message' => 'Infected, Pending Action',
         ],
-        self::STATE_CLEAN             => [
-            'type'    => 'good',
+        self::STATE_CLEAN => [
+            'type' => 'good',
             'message' => 'Clean',
         ],
-        self::STATE_DELETED_INFECTED  => [
-            'type'    => 'good',
+        self::STATE_DELETED_INFECTED => [
+            'type' => 'good',
             'message' => 'Deleted, File was infected',
         ],
-        self::STATE_DELETED_CLEAN     => [
-            'type'    => 'good',
+        self::STATE_DELETED_CLEAN => [
+            'type' => 'good',
             'message' => 'Deleted, File was clean',
         ],
         self::STATE_DELETED_UNSCANNED => [
-            'type'    => 'good',
+            'type' => 'good',
             'message' => 'Deleted, File was never scanned',
         ],
-        self::STATE_IGNORED_INFECTED  => [
-            'type'    => 'good',
+        self::STATE_IGNORED_INFECTED => [
+            'type' => 'good',
             'message' => 'Ignore infection',
         ],
         self::STATE_IGNORED_UNSCANNED => [
-            'type'    => 'good',
+            'type' => 'good',
             'message' => 'Ignore unscanned',
         ],
     ];
 
-    /**
-     * @var string
-     */
-    private static $singular_name = 'ClamAV Scan';
+    private static string $singular_name = 'ClamAV Scan';
 
-    /**
-     * @var string
-     */
-    private static $default_sort = 'ID DESC';
+    private static string $default_sort = 'ID DESC';
 
-    /**
-     * @param \Symbiote\SteamedClams\Model\ClamAVScan $record
-     *
-     * @return int|string
-     */
-    public static function get_file_id_cms_link(ClamAVScan $record)
+    public static function get_file_id_cms_link(ClamAVScan $record): DBHTMLText|int|string
     {
         if (!$record) {
             return '';
@@ -201,10 +177,7 @@ class ClamAVScan extends DataObject
         return $record->getFileIDCMSLink();
     }
 
-    /**
-     * @return int|\SilverStripe\ORM\FieldType\DBHTMLText
-     */
-    public function getFileIDCMSLink()
+    public function getFileIDCMSLink(): DBHTMLText|int
     {
         if (!$this->FileID) {
             return 0;
@@ -214,7 +187,7 @@ class ClamAVScan extends DataObject
         if (!$file->exists() || !$file->canEdit()) {
             return $fileID;
         }
-        $cmsEditLink = $file->CMSEditLink();
+        $cmsEditLink = $file->getCMSEditLink();
         $result = DBHTMLText::create('FileID');
         $result->setValue($fileID);
         $result->setValue($result->getValue() . ' <a href="' . $cmsEditLink . '">(Edit)</a>');
@@ -222,7 +195,7 @@ class ClamAVScan extends DataObject
         return $result;
     }
 
-    public function requireDefaultRecords()
+    public function requireDefaultRecords(): void
     {
         parent::requireDefaultRecords();
         if ($this->class !== __CLASS__) {
@@ -233,7 +206,7 @@ class ClamAVScan extends DataObject
         }
     }
 
-    public function onBeforeWrite()
+    public function onBeforeWrite(): void
     {
         parent::onBeforeWrite();
 
@@ -257,8 +230,8 @@ class ClamAVScan extends DataObject
 
             $lastScan = ClamAVScan::get()->filter([
                 'IsScanned' => 0,
-                'Action'    => ClamAVScan::ACTION_NONE,
-                'FileID'    => $this->FileID,
+                'Action' => ClamAVScan::ACTION_NONE,
+                'FileID' => $this->FileID,
             ]);
             $lastScan = $lastScan->sort('ID', 'DESC');
             $lastScan = $lastScan->first();
@@ -279,7 +252,7 @@ class ClamAVScan extends DataObject
                 }
             } else {
                 // Store Context URL (where this was created)
-                $controller = (Controller::has_curr()) ? Controller::curr() : null;
+                $controller = Controller::curr();
                 if ($controller) {
                     if (!$this->ContextURL) {
                         // Store URL
@@ -296,7 +269,7 @@ class ClamAVScan extends DataObject
                             $page = $controller->data();
                         }
                         if ($controller instanceof LeftAndMain) {
-                            $page = $controller->currentPage();
+                            $page = $controller->currentRecord();
                         }
                         if ($page && $page->exists()) {
                             $this->ContextPageID = $page->ID;
@@ -316,10 +289,10 @@ class ClamAVScan extends DataObject
             // creates a new scan record. If this happens, remove
             // any "pending to be scanned" records (ie. IsScanned = 0)
             $oldScanRecords = self::get()->filter([
-                'FileID'    => $this->FileID,
+                'FileID' => $this->FileID,
                 'IsScanned' => 0,
-                'Action'    => ClamAVScan::ACTION_NONE,
-                'ID:not'    => $this->ID,
+                'Action' => ClamAVScan::ACTION_NONE,
+                'ID:not' => $this->ID,
             ]);
             foreach ($oldScanRecords as $record) {
                 $record->delete();
@@ -333,10 +306,8 @@ class ClamAVScan extends DataObject
 
     /**
      * Scan/Re-scan the item.
-     *
-     * @return boolean
      */
-    public function processFileActionScan()
+    public function processFileActionScan(): bool
     {
         $file = $this->File();
         if (!$file || !$file->exists()) {
@@ -360,10 +331,9 @@ class ClamAVScan extends DataObject
     /**
      * Change state of scanned item to say file is deleted.
      *
-     * @return boolean
      * @throws ValidationException
      */
-    public function processFileActionDelete()
+    public function processFileActionDelete(): bool
     {
         if ($this->FileID > 0) {
             /** @var File $file */
@@ -372,7 +342,7 @@ class ClamAVScan extends DataObject
                 $file->deleteFile();
             }
         }
-        $action = (int) $this->Action;
+        $action = (int)$this->Action;
         if ($action !== ClamAVScan::ACTION_DELETED) {
             $this->Action = ClamAVScan::ACTION_DELETED;
             $member = Security::getCurrentUser();
@@ -392,10 +362,9 @@ class ClamAVScan extends DataObject
     /**
      * Change state of scanned item to say file is deleted.
      *
-     * @return boolean
      * @throws ValidationException
      */
-    public function processFileActionIgnore()
+    public function processFileActionIgnore(): bool
     {
         $action = (int)$this->Action;
         if ($action !== ClamAVScan::ACTION_IGNORED) {
@@ -413,10 +382,7 @@ class ClamAVScan extends DataObject
         return false;
     }
 
-    /**
-     * @return int
-     */
-    public function getState()
+    public function getState(): int
     {
         $action = $this->Action;
         if ($action != self::ACTION_NONE) {
@@ -424,13 +390,13 @@ class ClamAVScan extends DataObject
                 case self::ACTION_DELETED:
                     if ($this->IsInfected) {
                         return self::STATE_DELETED_INFECTED;
-                    } else {
-                        if ($this->IsScanned) {
-                            return self::STATE_DELETED_CLEAN;
-                        }
+                    }
+                    if ($this->IsScanned) {
+                        return self::STATE_DELETED_CLEAN;
                     }
 
                     return self::STATE_DELETED_UNSCANNED;
+
                     break;
 
                 case self::ACTION_IGNORED:
@@ -439,10 +405,12 @@ class ClamAVScan extends DataObject
                     }
 
                     return self::STATE_IGNORED_UNSCANNED;
+
                     break;
 
                 default:
                     throw new LogicException('Invalid state (' . $action . ')');
+
                     break;
             }
         }
@@ -453,19 +421,15 @@ class ClamAVScan extends DataObject
         return self::STATE_UNSCANNED;
     }
 
-    /**
-     * @var string
-     * @return DBHTMLText|mixed|string
-     */
-    public function getLocationUploaded()
+    public function getLocationUploaded(): null|DBHTMLText|string
     {
-        //$getVars = explode('?', $this->ContextURL);
-        //$getVars = isset($getVar[1]) ? '?'.$getVar[1] : '';
+        // $getVars = explode('?', $this->ContextURL);
+        // $getVars = isset($getVar[1]) ? '?'.$getVar[1] : '';
 
         $link = $this->ContextURL;
         $page = $this->ContextPage();
         if ($page && $page->exists() && $page->canEdit()) {
-            $link .= ' <a href="' . $page->CMSEditLink() . '">(Edit #' . $page->ID . ')</a>';
+            $link .= ' <a href="' . $page->getCMSEditLink() . '">(Edit #' . $page->ID . ')</a>';
             $html = new DBHTMLText('URLLink');
             $html->setValue($link);
 
@@ -476,10 +440,9 @@ class ClamAVScan extends DataObject
     }
 
     /**
-     * @return DBHTMLText
      * @throws LogicException
      */
-    public function getStateMessage()
+    public function getStateMessage(): DBHTMLText
     {
         $colour = '#C00';
         $text = '';
@@ -491,21 +454,26 @@ class ClamAVScan extends DataObject
         }
         if (isset($state_messages[$action])) {
             $actionData = $state_messages[$action];
+
             switch ($actionData['type']) {
                 case 'bad':
                     $colour = '#C00';
+
                     break;
 
                 case 'warning':
                     $colour = '#1391DF';
+
                     break;
 
                 case 'good':
                     $colour = '#18BA18';
+
                     break;
 
                 default:
                     throw new LogicException('Invalid type "' . $actionData['type'] . '".');
+
                     break;
             }
             $text = $actionData['message'];
@@ -520,10 +488,7 @@ class ClamAVScan extends DataObject
         return $html;
     }
 
-    /**
-     * @return string
-     */
-    public function getUserIdentifier()
+    public function getUserIdentifier(): ?string
     {
         if ($this->MemberID) {
             $member = $this->Member();
@@ -534,21 +499,14 @@ class ClamAVScan extends DataObject
         return $this->IPAddress;
     }
 
-    /**
-     * @return string
-     */
-    public function getRawDataSummary()
+    public function getRawDataSummary(): ?string
     {
         $rawData = $this->RawData;
-        $value = ($rawData && isset($rawData['status'])) ? $rawData['status'] : '';
 
-        return $value;
+        return ($rawData && isset($rawData['status'])) ? $rawData['status'] : '';
     }
 
-    /**
-     * @return array
-     */
-    public function getRawData()
+    public function getRawData(): array
     {
         $value = $this->getField('RawData');
         if (is_string($value)) {
@@ -559,12 +517,9 @@ class ClamAVScan extends DataObject
     }
 
     /**
-     * @param array $value
-     *
-     * @return null
-     * @throws \JsonException
+     * @throws JsonException
      */
-    public function setRawData($value)
+    public function setRawData(mixed $value): void
     {
         if (is_array($value)) {
             $value = json_encode($value, JSON_THROW_ON_ERROR);

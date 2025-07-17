@@ -2,37 +2,25 @@
 
 namespace Symbiote\SteamedClams\Extension;
 
+use SilverStripe\Core\Extension;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\TextField;
-use SilverStripe\ORM\DataExtension;
 
 /**
  * This extension adds contact information such as 'Phone' and 'Email' as well
- * as 'SocialMediaLinks'
+ * as 'SocialMediaLinks'.
  */
-class ClamAVSiteConfigExtension extends DataExtension
+class ClamAVSiteConfigExtension extends Extension
 {
-
-    /**
-     * @var array
-     */
-    private static $db = [
+    private static array $db = [
         'ValidationMessage' => 'Varchar(255)',
     ];
 
-    /**
-     * @var array
-     */
-    private static $defaults = [
+    private static array $defaults = [
         'validationMessage' => 'A virus was detected.',
     ];
 
-    /**
-     * @param  Fieldlist $fields
-     *
-     * @return void
-     */
-    public function updateCMSFields(Fieldlist $fields)
+    public function updateCMSFields(FieldList $fields): void
     {
         $fields->addFieldsToTab(
             'Root.ClamAV',

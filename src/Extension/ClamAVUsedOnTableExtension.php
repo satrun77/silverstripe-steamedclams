@@ -6,14 +6,16 @@ use SilverStripe\Core\Extension;
 use Symbiote\SteamedClams\Model\ClamAVScan;
 
 /**
- * Hides Clam AV Scans from file used on table
+ * Hides Clam AV Scans from file used on table.
  */
 class ClamAVUsedOnTableExtension extends Extension
 {
     /**
-     * @var string[] $excludedClasses
+     * @param mixed $excludedClasses
+     * @var string[]
+     *
      */
-    public function updateUsageExcludedClasses(&$excludedClasses)
+    public function updateUsageExcludedClasses(&$excludedClasses): void
     {
         $excludedClasses[] = ClamAVScan::class;
     }

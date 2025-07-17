@@ -3,54 +3,42 @@
 namespace Symbiote\SteamedClams\Extension;
 
 use SilverStripe\Assets\File;
-use SilverStripe\Assets\Flysystem\ProtectedAssetAdapter;
 use SilverStripe\Assets\Folder;
-use SilverStripe\Core\Config\Config;
+use SilverStripe\Core\Extension;
 use SilverStripe\Core\Injector\Injector;
-use SilverStripe\ORM\DataExtension;
+use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
-use SilverStripe\ORM\ValidationResult;
+use Silverstripe\SiteConfig\SiteConfig;
 use Symbiote\SteamedClams\ClamAV;
 use Symbiote\SteamedClams\Model\ClamAVScan;
-use Silverstripe\SiteConfig\SiteConfig;
 
 /**
- * Class Symbiote\SteamedClams\ClamAVExtension
+ * Class Symbiote\SteamedClams\ClamAVExtension.
  *
- * @property File|ClamAVExtension $owner
- * @method DataList|ClamAVScan[] ClamAVScans()
+ * @property ClamAVExtension|File $owner
+ *
+ * @method ClamAVScan[]|DataList ClamAVScans()
  */
-class ClamAVExtension extends DataExtension
+class ClamAVExtension extends Extension
 {
-    /**
-     * @var array
-     */
-    private static $has_many = [
+    protected $_cache_scanForVirus = 0;
+    private static array $has_many = [
         'ClamAVScans' => ClamAVScan::class,
     ];
 
-    /**
-     * @var ClamAVScan
-     */
-    protected $_cache_scanForVirus = 0;
-
-    /**
-     *
-     */
-    //public function updateCMSFields(FieldList $fields) {
+    // public function updateCMSFields(FieldList $fields) {
     // todo(Jake): Show 'ClamAVScans' on AssetAdmin/File level.
-    //}
+    // }
 
     /**
      * This is called within `File::write()` but before `File::onBeforeWrite()`.
      *
      * @param ValidationResult $validationResult
      *
-     * @return null
      * @throws \SilverStripe\ORM\ValidationException
      */
-    public function validate(ValidationResult $validationResult)
+    public function updateValidate(ValidationResult $validationResult): void
     {
         // If its a new file, scan it.
         $doVirusScan = ($this->owner->ID == 0);
@@ -60,6 +48,7 @@ class ClamAVExtension extends DataExtension
         foreach (['File', 'FileHash', 'Version', 'CurrentVersionID'] as $changeField) {
             if (isset($changedFields[$changeField]) && $changedFields[$changeField]['before'] !== $changedFields[$changeField]['after']) {
                 $doVirusScan = true;
+
                 break;
             }
         }
@@ -81,7 +70,7 @@ class ClamAVExtension extends DataExtension
 
         $denyUpload = ($record->IsInfected || ($denyOnFailure && !$record->IsScanned));
         // todo(Jake): Allow for custom deny rules with virus scan and TEST.
-        //$this->owner->extend('updateDeny', $denyUpload, $record, $validationResult);
+        // $this->owner->extend('updateDeny', $denyUpload, $record, $validationResult);
 
         if (!$denyUpload) {
             // Add the scan/log if the file is clean / allowed
@@ -119,11 +108,9 @@ class ClamAVExtension extends DataExtension
     }
 
     /**
-     * Returns an unsaved `ClamAVScan` record with information regarding the virus scan
-     *
-     * @return ClamAVScan
+     * Returns an unsaved `ClamAVScan` record with information regarding the virus scan.
      */
-    public function scanForVirus()
+    public function scanForVirus(): ?ClamAVScan
     {
         if (!$this->isVirusScannable()) {
             return null;
@@ -134,14 +121,13 @@ class ClamAVExtension extends DataExtension
 
     /**
      * Whether the file can be scanned or not.
-     *
-     * @return boolean
      */
-    public function isVirusScannable()
+    public function isVirusScannable(): bool
     {
         if ($this->owner instanceof Folder) {
             return false;
         }
+
         // NOTE(Jake): Perhaps add $this->owner->extend() here? Maybe you want to avoid scanning
         // 2GB files or similar? But maybe we want a different function that works
         // like ::validate(). Too early to say.
@@ -153,7 +139,8 @@ class ClamAVExtension extends DataExtension
      * Optionally removes any query params (e.g. when used with S3).
      *
      * @param bool $stripQueryParams
-     * @return string|null
+     *
+     * @return null|string
      */
     public function getFullPath(bool $stripQueryParams = false): ?string
     {
@@ -175,7 +162,7 @@ class ClamAVExtension extends DataExtension
     /**
      * @throws \SilverStripe\ORM\ValidationException
      */
-    public function onAfterDelete()
+    public function onAfterDelete(): void
     {
         foreach ($this->owner->ClamAVScans() as $scan) {
             $scan->processFileActionDelete();

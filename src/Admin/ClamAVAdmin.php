@@ -3,6 +3,7 @@
 namespace Symbiote\SteamedClams\Admin;
 
 use SilverStripe\Admin\ModelAdmin;
+use SilverStripe\AssetAdmin\Controller\AssetAdmin;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPResponse;
 use SilverStripe\Core\Injector\Injector;
@@ -16,40 +17,23 @@ use SilverStripe\View\Requirements;
 use Symbiote\SteamedClams\ClamAV;
 use Symbiote\SteamedClams\Forms\GridFieldClamAVAction;
 use Symbiote\SteamedClams\Model\ClamAVScan;
-use SilverStripe\AssetAdmin\Controller\AssetAdmin;
 
 /**
- * Class Symbiote\SteamedClams\ClamAVAdmin
- *
+ * Class Symbiote\SteamedClams\ClamAVAdmin.
  */
 class ClamAVAdmin extends ModelAdmin
 {
-    /**
-     * @var string
-     */
-    private static $url_segment = 'clamav';
+    private static string $url_segment = 'clamav';
 
-    /**
-     * @var string
-     */
-    private static $menu_title = 'ClamAV';
+    private static string $menu_title = 'ClamAV';
 
-    /**
-     * @var array
-     */
-    private static $managed_models = [
+    private static array $managed_models = [
         ClamAVScan::class,
     ];
 
-    /**
-     * @var string
-     */
-    private static $menu_icon = 'symbiote/silverstripe-steamedclams:client/images/clamav_icon.png';
+    private static string $menu_icon = 'symbiote/silverstripe-steamedclams:client/images/clamav_icon.png';
 
-    /**
-     * @var array
-     */
-    private static $allowed_actions = [
+    private static array $allowed_actions = [
         'Assets',
     ];
 
@@ -72,7 +56,7 @@ class ClamAVAdmin extends ModelAdmin
         }
         $assetAdmin->setCurrentPageID($id);
 
-        //Session::set($assetAdmin->class.".currentPage", (int)$id);
+        // Session::set($assetAdmin->class.".currentPage", (int)$id);
         return $this->redirect(
             Controller::join_links($assetAdmin->Link('EditForm'), 'field', 'File', 'item', $id, 'edit')
         );
@@ -138,7 +122,7 @@ class ClamAVAdmin extends ModelAdmin
                 );
             }
 
-            //Files that failed to scan
+            // Files that failed to scan
             $listCount = 0;
             $list = $clamAV->getFailedToScanFileList();
             if ($list) {

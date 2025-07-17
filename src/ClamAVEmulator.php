@@ -2,13 +2,15 @@
 
 namespace Symbiote\SteamedClams;
 
+use ClamdSocketException;
 use LogicException;
 use SilverStripe\Assets\File;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\ORM\DataObject;
+use Symbiote\SteamedClams\Model\ClamAVScan;
 
 /**
- * For emulating/faking ClamAV results
+ * For emulating/faking ClamAV results.
  *
  * This was implemented so Windows users and inexperienced developers can
  * focus on the logic surrounding the ClamAV daemon, without needing to
@@ -16,83 +18,102 @@ use SilverStripe\ORM\DataObject;
  */
 class ClamAVEmulator extends ClamAV
 {
-    const MODE_UNKNOWN = 0;
-    const MODE_NO_VIRUS = 1;
-    const MODE_HAS_VIRUS = 2;
-    const MODE_OFFLINE = 3;
+    public const int MODE_UNKNOWN = 0;
+    public const int MODE_NO_VIRUS = 1;
+    public const int MODE_HAS_VIRUS = 2;
+    public const int MODE_OFFLINE = 3;
 
     /**
-     * The state of ClamAV to fake
-     *
-     * @var int
+     * The state of ClamAV to fake.
      */
-    private static $mode = self::MODE_UNKNOWN;
+    private static int $mode = self::MODE_UNKNOWN;
 
     /**
      * The version string to return when emulating.
      *
      * @var string
      */
-    private static $emulate_version = 'ClamAV 0.99.2/22585/Wed Nov 23 00:21:08 2016';
+    private static string $emulate_version = 'ClamAV 0.99.2/22585/Wed Nov 23 00:21:08 2016';
 
     /**
      * {@inheritDoc}
      */
-    public function version()
+    public function version(): string
     {
         $mode = Config::inst()->get(__CLASS__, 'mode');
         $emulateVersion = Config::inst()->get(__CLASS__, 'emulate_version');
+
         switch ($mode) {
             case self::MODE_UNKNOWN:
                 return $this->modeUnknown();
+
                 break;
 
             case self::MODE_NO_VIRUS:
             case self::MODE_HAS_VIRUS:
                 return $emulateVersion;
+
                 break;
 
             case self::MODE_OFFLINE:
                 return $this->modeOffline();
+
                 break;
 
             default:
                 return $this->modeInvalid();
+
                 break;
         }
+    }
+
+    public function scanFileRecordForVirus(File $file): ?ClamAVScan
+    {
+        $record = $this->scanFileForVirus($file);
+        if ($record && $record instanceof DataObject) {
+            $record->FileID = $file->ID;
+        }
+
+        return $record;
     }
 
     /**
      * {@inheritDoc}
      */
-    protected function fileScan($filepath)
+    protected function fileScan(string $filepath): mixed
     {
         $mode = Config::inst()->get(__CLASS__, 'mode');
+
         switch ($mode) {
             case self::MODE_UNKNOWN:
                 return $this->modeUnknown();
+
                 break;
 
             case self::MODE_NO_VIRUS:
-                return array(
-                    'file'  => $filepath,
+                return [
+                    'file' => $filepath,
                     'stats' => 'OK',
-                );
+                ];
+
                 break;
 
             case self::MODE_HAS_VIRUS:
-                return array(
-                    'file'  => $filepath,
+                return [
+                    'file' => $filepath,
                     'stats' => 'Eicar-Test-Signature FOUND',
-                );
+                ];
+
                 break;
 
             case self::MODE_OFFLINE:
                 return $this->modeOffline();
+
                 break;
 
             default:
                 return $this->modeInvalid();
+
                 break;
         }
     }
@@ -102,9 +123,9 @@ class ClamAVEmulator extends ClamAV
         throw new LogicException('Must configure ' . __CLASS__ . '::mode config');
     }
 
-    protected function modeOffline()
+    protected function modeOffline(): bool
     {
-        $this->last_exception = new \ClamdSocketException(
+        $this->last_exception = new ClamdSocketException(
             '*EMULATE MODE* No such file or directory "/not-real-root-folder/run/clamav/clamd.ctl"',
             2
         );
@@ -119,14 +140,4 @@ class ClamAVEmulator extends ClamAV
             . '". Use constants provided in ' . __CLASS__ . ' class.'
         );
     }
-
-    public function scanFileRecordForVirus(File $file)
-    {
-        $record = $this->scanFileForVirus('fake/file.txt');
-        if ($record && $record instanceof DataObject) {
-            $record->FileID = $file->ID;
-        }
-        return $record;
-    }
-
 }

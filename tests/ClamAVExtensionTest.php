@@ -9,7 +9,7 @@ use Symbiote\SteamedClams\ClamAV;
 use Symbiote\SteamedClams\ClamAVEmulator;
 use Symbiote\SteamedClams\Model\ClamAVScan;
 use SilverStripe\Assets\File;
-use SilverStripe\ORM\ValidationException;
+use SilverStripe\Core\Validation\ValidationException;
 use SilverStripe\Assets\Dev\TestAssetStore;
 use SilverStripe\Security\BasicAuth;
 use SilverStripe\Core\Config\Config;
@@ -89,7 +89,7 @@ class ClamAVExtensionTest extends SapphireTest
         $this->assertEquals($scanCount + 1, ClamAVScan::get()->count());
 
         // Ensure file created because deny_on_failure is disabled
-        $this->assertEquals($fileCount, File::get()->count());
+        $this->assertEquals($fileCount + 1, File::get()->count());
     }
 
     public function testFileLogIfVirusScannerOffline(): void

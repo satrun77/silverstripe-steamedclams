@@ -97,7 +97,7 @@ By running the task below, all files uploaded before installation of the module 
 scanned.
 
 ```
-/dev/tasks/Symbiote-SteamedClams-ClamAVInstallTask
+./vendor/bin/sake tasks:clamav-install
 ```
 
 To ignore certain files before a specific date, you can configure the datetime in your `YML` files, as below:
