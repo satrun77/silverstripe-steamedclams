@@ -3,10 +3,10 @@ Name: steamedclams
 ---
 SilverStripe\Assets\File:
   extensions:
-    - Symbiote\SteamedClams\Extension\ClamAVExtension
+    ClamAVExtension: Symbiote\SteamedClams\Extension\ClamAVExtension
 SilverStripe\SiteConfig\SiteConfig:
   extensions:
-    -  Symbiote\SteamedClams\Extension\ClamAVSiteConfigExtension
+    ClamAVSiteConfigExtension: Symbiote\SteamedClams\Extension\ClamAVSiteConfigExtension
 SilverStripe\Admin\Forms\UsedOnTable:
   extensions:
-    - Symbiote\SteamedClams\Extension\ClamAVUsedOnTableExtension
+    ClamAVUsedOnTableExtension: Symbiote\SteamedClams\Extension\ClamAVUsedOnTableExtension
