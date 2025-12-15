@@ -190,12 +190,14 @@ class ClamAV
     public function isOffline(): bool
     {
         if ($this->_cache_isOffline !== null) {
-            return $this->_cache_isOffline;
+            return (bool)$this->_cache_isOffline;
         }
         $result = $this->version();
         $result = ($result === ClamAV::OFFLINE);
 
-        return $this->_cache_isOffline = $result;
+        $this->_cache_isOffline = $result;
+
+        return (bool)$this->_cache_isOffline;
     }
 
     public function version(): bool|string

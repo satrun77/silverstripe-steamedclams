@@ -38,7 +38,7 @@ class ClamAVEmulator extends ClamAV
     /**
      * {@inheritDoc}
      */
-    public function version(): string
+    public function version(): bool|string
     {
         $mode = Config::inst()->get(__CLASS__, 'mode');
         $emulateVersion = Config::inst()->get(__CLASS__, 'emulate_version');

@@ -513,7 +513,7 @@ class ClamAVScan extends DataObject
             $value = json_decode($value, true);
         }
 
-        return $value;
+        return (array)$value;
     }
 
     /**
