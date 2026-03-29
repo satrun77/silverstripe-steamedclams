@@ -4,6 +4,7 @@ namespace Symbiote\SteamedClams\Extension;
 
 use SilverStripe\Assets\File;
 use SilverStripe\Assets\Folder;
+use SilverStripe\Control\Controller;
 use SilverStripe\Core\Extension;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Core\Validation\ValidationResult;
@@ -151,9 +152,17 @@ class ClamAVExtension extends Extension
             return null;
         }
 
+        // getSourceURL() calls FlysystemAssetStore::grant() for protected files,
+        // which requires an active controller/request. During dev/build with no
+        // database no controller exists, so fall back to the stored filename
+        // which is sufficient for the scan log record.
+        if (!Controller::curr()) {
+            return $owner->getFilename() ?: null;
+        }
+
         $sourceUrl = $this->owner->File->getSourceURL() ?? '';
         if ($stripQueryParams) {
-            return strtok($sourceUrl, '?');
+            return strtok($sourceUrl, '?') ?: null;
         }
 
         return $sourceUrl;
