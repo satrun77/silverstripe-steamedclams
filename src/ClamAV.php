@@ -285,6 +285,6 @@ class ClamAV
             return '';
         }
 
-        return $request->getIP();
+        return $request->getIP() ?? '';
     }
 }

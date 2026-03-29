@@ -223,8 +223,9 @@ class ClamAVScan extends DataObject
                     $member = Security::getCurrentUser();
                     if ($member) {
                         $this->MemberID = $member->ID;
+                    } else {
+                        $this->MemberID = 0;
                     }
-                    $this->MemberID = 0;
                 }
             }
 
@@ -447,7 +448,7 @@ class ClamAVScan extends DataObject
         $colour = '#C00';
         $text = '';
 
-        $action = $this->State;
+        $action = $this->getState();
         $state_messages = $this->config()->state_messages;
         if (!isset($state_messages[$action])) {
             $action = self::STATE_INVALID;
@@ -492,8 +493,9 @@ class ClamAVScan extends DataObject
     {
         if ($this->MemberID) {
             $member = $this->Member();
-
-            return $member->Email . ' #' . $member->ID . ' (' . $this->IPAddress . ')';
+            if ($member && $member->exists()) {
+                return $member->Email . ' #' . $member->ID . ' (' . $this->IPAddress . ')';
+            }
         }
 
         return $this->IPAddress;
@@ -501,7 +503,7 @@ class ClamAVScan extends DataObject
 
     public function getRawDataSummary(): ?string
     {
-        $rawData = $this->RawData;
+        $rawData = $this->getRawData();
 
         return ($rawData && isset($rawData['status'])) ? $rawData['status'] : '';
     }

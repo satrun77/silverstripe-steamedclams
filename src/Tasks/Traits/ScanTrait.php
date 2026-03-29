@@ -71,22 +71,27 @@ trait ScanTrait
             }
             $logRecord = $file->scanForVirus();
 
+            // Null guard must precede any property access on $logRecord.
+            if (!$logRecord) {
+                $this->log('Skipping ' . $file->ClassName . ' #' . $file->ID . '. File doesn\'t exist.');
+
+                continue;
+            }
+
+            // scanFileForVirus() catches socket exceptions and returns an unscanned
+            // ClamAVScan record (IsScanned = false) when the daemon is unreachable,
+            // rather than throwing. An unscanned record here means the daemon is down.
+            if (!$logRecord->IsScanned) {
+                $this->log('ClamAV daemon is offline.', 'error');
+
+                return false;
+            }
+
             // scans by a job/task will have an IPAddress of 127.0.0.1
             $originalScan = $file->ClamAVScans()->sort('Created DESC')->first();
             if (isset($originalScan, $originalScan->IPAddress)) {
                 // replace 127.0.0.1 with original IPAddress
                 $logRecord->IPAddress = $originalScan->IPAddress;
-            }
-
-            if ($logRecord === ClamAV::OFFLINE) {
-                $this->log('ClamAV daemon is offline.', 'error');
-
-                return false;
-            }
-            if (!$logRecord) {
-                $this->log('Skipping ' . $file->ClassName . ' #' . $file->ID . '. File doesn\'t exist.');
-
-                continue;
             }
             if ($logRecord->IsInfected) {
                 $this->log($file->ClassName . ' #' . $file->ID . ' has a virus.', 'error');
