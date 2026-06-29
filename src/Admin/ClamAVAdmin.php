@@ -7,9 +7,12 @@ use SilverStripe\AssetAdmin\Controller\AssetAdmin;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPResponse;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Forms\GridField\GridFieldAddExistingAutocompleter;
 use SilverStripe\Forms\GridField\GridFieldAddNewButton;
+use SilverStripe\Forms\GridField\GridFieldConfig;
 use SilverStripe\Forms\GridField\GridFieldDeleteAction;
 use SilverStripe\Forms\GridField\GridFieldEditButton;
+use SilverStripe\Forms\GridField\GridFieldPrintButton;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\Security\Permission;
@@ -138,5 +141,18 @@ class ClamAVAdmin extends ModelAdmin
         $form = parent::getEditForm($id, $fields);
 
         return $form;
+    }
+
+    public function getGridFieldConfig(): GridFieldConfig
+    {
+        $config = parent::getGridFieldConfig();
+
+        // summary_fields fetches FileID value using callback, this implementation does not work with gridfield print
+        $config->getComponentByType(GridFieldPrintButton::class)->setPrintColumns([
+            ...singleton($this->getModelClass())->summaryFields(),
+            'FileID' => 'File ID',
+        ]);
+
+        return $config;
     }
 }
