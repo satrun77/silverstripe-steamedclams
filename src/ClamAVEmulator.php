@@ -2,12 +2,11 @@
 
 namespace Symbiote\SteamedClams;
 
-use ClamdSocketException;
 use LogicException;
 use SilverStripe\Assets\File;
 use SilverStripe\Core\Config\Config;
-use SilverStripe\ORM\DataObject;
-use Symbiote\SteamedClams\Model\ClamAVScan;
+use Xenolope\Quahog\Exception\ConnectionException;
+use Xenolope\Quahog\Result;
 
 /**
  * For emulating/faking ClamAV results.
@@ -22,6 +21,12 @@ class ClamAVEmulator extends ClamAV
     public const int MODE_NO_VIRUS = 1;
     public const int MODE_HAS_VIRUS = 2;
     public const int MODE_OFFLINE = 3;
+
+    /**
+     * The daemon is online but returned a scan error for the file
+     * (e.g. clamd's stream/file size limit was reached).
+     */
+    public const int MODE_SCAN_ERROR = 4;
 
     /**
      * The state of ClamAV to fake.
@@ -47,97 +52,75 @@ class ClamAVEmulator extends ClamAV
             case self::MODE_UNKNOWN:
                 return $this->modeUnknown();
 
-                break;
-
             case self::MODE_NO_VIRUS:
             case self::MODE_HAS_VIRUS:
+            case self::MODE_SCAN_ERROR:
                 return $emulateVersion;
-
-                break;
 
             case self::MODE_OFFLINE:
                 return $this->modeOffline();
 
-                break;
-
             default:
                 return $this->modeInvalid();
-
-                break;
         }
-    }
-
-    public function scanFileRecordForVirus(File $file): ?ClamAVScan
-    {
-        $record = $this->scanFileForVirus($file);
-        if ($record && $record instanceof DataObject) {
-            $record->FileID = $file->ID;
-        }
-
-        return $record;
     }
 
     /**
+     * Fake the daemon scan seam so the surrounding upload/deny/log logic can be
+     * exercised without a real ClamAV daemon or socket.
+     *
      * {@inheritDoc}
      */
-    protected function fileScan(string $filepath): mixed
+    protected function getClamdScan(File $file): ?Result
     {
         $mode = Config::inst()->get(__CLASS__, 'mode');
+        $filename = $file->getFullPath(true) ?: 'stream';
 
         switch ($mode) {
+            case self::MODE_NO_VIRUS:
+                return new Result(self::STATUS_OK, $filename, null, null);
+
+            case self::MODE_HAS_VIRUS:
+                return new Result(self::STATUS_FOUND, $filename, 'Eicar-Test-Signature FOUND', null);
+
+            case self::MODE_SCAN_ERROR:
+                return new Result(self::STATUS_ERROR, $filename, 'INSTREAM: Size limit reached. ERROR', null);
+
+            case self::MODE_OFFLINE:
+                // Mirror a real socket failure so scanFileForVirus() records the
+                // file as "unscanned" and logs the reason.
+                throw new ConnectionException($this->offlineMessage());
+
             case self::MODE_UNKNOWN:
                 return $this->modeUnknown();
 
-                break;
-
-            case self::MODE_NO_VIRUS:
-                return [
-                    'file' => $filepath,
-                    'stats' => 'OK',
-                ];
-
-                break;
-
-            case self::MODE_HAS_VIRUS:
-                return [
-                    'file' => $filepath,
-                    'stats' => 'Eicar-Test-Signature FOUND',
-                ];
-
-                break;
-
-            case self::MODE_OFFLINE:
-                return $this->modeOffline();
-
-                break;
-
             default:
                 return $this->modeInvalid();
-
-                break;
         }
     }
 
-    protected function modeUnknown()
+    protected function modeUnknown(): never
     {
         throw new LogicException('Must configure ' . __CLASS__ . '::mode config');
     }
 
     protected function modeOffline(): bool
     {
-        $this->last_exception = new ClamdSocketException(
-            '*EMULATE MODE* No such file or directory "/not-real-root-folder/run/clamav/clamd.ctl"',
-            2
-        );
+        $this->last_exception = new ConnectionException($this->offlineMessage(), 2);
 
         return self::OFFLINE;
     }
 
-    protected function modeInvalid()
+    protected function modeInvalid(): never
     {
         throw new LogicException(
             'Invalid "mode" config with value "' . Config::inst()->get(__CLASS__, 'mode')
             . '". Use constants provided in ' . __CLASS__ . ' class.'
         );
+    }
+
+    private function offlineMessage(): string
+    {
+        return '*EMULATE MODE* No such file or directory "/not-real-root-folder/run/clamav/clamd.ctl"';
     }
 }

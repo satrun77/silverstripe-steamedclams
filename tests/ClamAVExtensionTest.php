@@ -67,8 +67,10 @@ class ClamAVExtensionTest extends SapphireTest
         $this->assertEquals($fileCount, File::get()->count());
     }
 
-    public function testFileLogIfVirus(): void
+    public function testInfectedFileIsAlwaysBlockedAndLogged(): void
     {
+        // An infected file must be blocked regardless of deny_on_failure, which
+        // only governs the "daemon unreachable" case.
         ClamAVEmulator::config()->set('mode', ClamAVEmulator::MODE_HAS_VIRUS);
         ClamAV::config()->set('deny_on_failure', false);
 
@@ -85,11 +87,62 @@ class ClamAVExtensionTest extends SapphireTest
             //
         }
 
-        // Ensure scan is created
+        // Ensure scan is created and correctly flagged as an infection
         $this->assertEquals($scanCount + 1, ClamAVScan::get()->count());
+        $scan = ClamAVScan::get()->sort('ID', 'DESC')->first();
+        $this->assertEquals(1, (int)$scan->IsScanned, 'A found virus is a completed scan');
+        $this->assertEquals(1, (int)$scan->IsInfected, 'The scan must be flagged as infected');
 
-        // Ensure file created because deny_on_failure is disabled
+        // Ensure the infected file was NOT created
+        $this->assertEquals($fileCount, File::get()->count());
+    }
+
+    public function testCleanFileIsAllowedAndLogged(): void
+    {
+        ClamAVEmulator::config()->set('mode', ClamAVEmulator::MODE_NO_VIRUS);
+        ClamAV::config()->set('deny_on_failure', true);
+
+        $name = 'updated-file.txt';
+
+        $fileCount = File::get()->count();
+        $scanCount = ClamAVScan::get()->count();
+        $record = File::create();
+        $record->File->setFromLocalFile($this->getMockFile($name), $name);
+        $record->write();
+
+        // A clean file is allowed through and its scan logged as clean
         $this->assertEquals($fileCount + 1, File::get()->count());
+        $this->assertEquals($scanCount + 1, ClamAVScan::get()->count());
+        $scan = $record->ClamAVScans()->first();
+        $this->assertNotNull($scan, 'The clean scan is attached to the file');
+        $this->assertEquals(1, (int)$scan->IsScanned);
+        $this->assertEquals(0, (int)$scan->IsInfected);
+    }
+
+    public function testOfflineWithDenyOnFailureBlocksFile(): void
+    {
+        // When the daemon is unreachable and deny_on_failure is on, the upload
+        // is denied even though no infection could be confirmed.
+        ClamAVEmulator::config()->set('mode', ClamAVEmulator::MODE_OFFLINE);
+        ClamAV::config()->set('deny_on_failure', true);
+
+        $name = 'updated-file.txt';
+
+        $fileCount = File::get()->count();
+        $scanCount = ClamAVScan::get()->count();
+        $record = File::create();
+        $record->File->setFromLocalFile($this->getMockFile($name), $name);
+
+        try {
+            $record->write();
+        } catch (ValidationException $e) {
+            //
+        }
+
+        $this->assertEquals($scanCount + 1, ClamAVScan::get()->count());
+        $scan = ClamAVScan::get()->sort('ID', 'DESC')->first();
+        $this->assertEquals(0, (int)$scan->IsScanned, 'Offline means the file was never scanned');
+        $this->assertEquals($fileCount, File::get()->count(), 'deny_on_failure blocks the unscanned upload');
     }
 
     public function testFileLogIfVirusScannerOffline(): void
@@ -115,6 +168,39 @@ class ClamAVExtensionTest extends SapphireTest
 
         // Ensure file gets created regardless of whether it has a virus
         $this->assertEquals(1, File::get()->count());
+    }
+
+    public function testScanErrorIsNotTreatedAsInfection(): void
+    {
+        // Regression: a clamd scan error (e.g. size limit reached) must be
+        // recorded as "unscanned" so it is retried, and must never block the
+        // upload as if the file were infected.
+        ClamAVEmulator::config()->set('mode', ClamAVEmulator::MODE_SCAN_ERROR);
+        ClamAV::config()->set('deny_on_failure', false);
+
+        $name = 'updated-file.txt';
+
+        $fileCount = File::get()->count();
+        $scanCount = ClamAVScan::get()->count();
+        $record = File::create();
+        $record->File->setFromLocalFile($this->getMockFile($name), $name);
+        $record->write();
+
+        $this->assertEquals($scanCount + 1, ClamAVScan::get()->count());
+        $scan = ClamAVScan::get()->sort('ID', 'DESC')->first();
+        $this->assertEquals(0, (int)$scan->IsScanned, 'A scan error is not a completed scan');
+        $this->assertEquals(0, (int)$scan->IsInfected, 'A scan error is not an infection');
+
+        // File is allowed through (not blocked) because it was not confirmed infected
+        $this->assertEquals($fileCount + 1, File::get()->count());
+    }
+
+    public function testFilesAreNeverSkippedBySize(): void
+    {
+        // The module must not impose its own file-size gate; every non-folder
+        // file is scannable regardless of size.
+        $file = File::create();
+        $this->assertTrue($file->isVirusScannable());
     }
 
     public function testPhysicalFileRemovalOnNewFileRecordIfDenied(): void

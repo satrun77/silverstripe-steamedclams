@@ -74,9 +74,36 @@ Symbiote\SteamedClams\ClamAV:
   deny_on_failure: false
   # For configuring on existing site builds and ignoring the scanning of pre-module install `File` records. 
   initial_scan_ignore_before_datetime: '1970-12-25 00:00:00'
-  # If true will send files to clamd as streams (by default files are referenced using their path). Useful when files are stored remotely and/or encrypted at rest.
+  # If true will send files to clamd as streams (INSTREAM) instead of letting the
+  # daemon read them from disk (SCAN). Enable this when files are stored remotely
+  # (e.g. S3) and/or encrypted at rest, where clamd cannot read the file path.
+  # NOTE: stream scanning is bound by clamd's `StreamMaxLength` (see below).
   use_streams: false
+  # Chunk size (bytes) used when streaming a file to the daemon.
+  stream_chunk_size: 8192
 ```
+
+# Scanning large files
+
+The module never imposes its own file-size limit — every uploaded file is scanned
+regardless of size, and files are handed to the daemon without being buffered into
+PHP memory. The only size ceiling is the one **clamd** enforces, so to scan large
+files you must raise the relevant limits in your `clamd.conf` (a value of `0` means
+unlimited):
+
+```conf
+# Path-based scanning (the default, use_streams: false)
+MaxFileSize 0
+MaxScanSize 0
+
+# Stream-based scanning (use_streams: true)
+StreamMaxLength 0
+```
+
+By default clamd caps these at 25M–100M. When a file exceeds the daemon's limit,
+clamd returns a scan *error* rather than a result — the module records that file as
+**unscanned** (so it is retried by the scan task / queued job) and never blocks the
+upload as though the file were infected. After raising the limits, restart clamd.
 
 If you have the QueuedJobs module installed, you can configure when files missed by ClamAV daemon are scanned.
 This job will only queue if the daemon couldn't be connected to at the time that the file was uploaded.

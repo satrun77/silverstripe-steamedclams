@@ -35,8 +35,8 @@ class ClamAVScanReport extends Report
     {
         $fieldList = FieldList::create(
             [
-                $startDate = DateField::create('Created:LessThan', _t('ClamAV.FROM_DATE', 'From date')),
-                $endDate = DateField::create('Created:GreaterThan', _t('ClamAV.TO_DATE', 'To date')),
+                $startDate = DateField::create('CreatedFrom', _t('ClamAV.FROM_DATE', 'From date')),
+                $endDate = DateField::create('CreatedTo', _t('ClamAV.TO_DATE', 'To date')),
                 $scanned = DropdownField::create('IsScanned', _t('ClamAV.IS_SCANNED', 'Is scanned'), [
                     true => 'Yes',
                     false => 'No',
@@ -119,33 +119,36 @@ class ClamAVScanReport extends Report
      *
      * @return DataList
      */
-    public function sourceRecords($params = [])
+    public function sourceRecords($params = [], $sort = null, $limit = null)
     {
-        $filter = $this->createFilter($params);
-
-        return ClamAVScan::get()
-            ->filter($filter)
-            ->exclude($params);
+        return ClamAVScan::get()->filter($this->createFilter($params));
     }
 
     /**
+     * Build an ORM filter from the submitted report parameters.
+     *
      * @param array $params
      *
      * @return array
      */
-    private function createFilter(&$params)
+    private function createFilter(array $params): array
     {
         $filter = [];
-        if (isset($params['Action'])) {
-            $filter['Action'] = $params['Action'];
+
+        foreach (['Action', 'MemberID', 'IsScanned'] as $field) {
+            if (isset($params[$field]) && $params[$field] !== '') {
+                $filter[$field] = $params[$field];
+            }
         }
-        if (isset($params['MemberID'])) {
-            $filter['MemberID'] = $params['MemberID'];
+
+        // Date range (inclusive). DateField submits an ISO 'Y-m-d' value; expand
+        // the bounds to cover the whole day so same-day scans aren't dropped.
+        if (!empty($params['CreatedFrom'])) {
+            $filter['Created:GreaterThanOrEqual'] = $params['CreatedFrom'] . ' 00:00:00';
         }
-        if (isset($params['IsScanned'])) {
-            $filter['IsScanned'] = $params['IsScanned'];
+        if (!empty($params['CreatedTo'])) {
+            $filter['Created:LessThanOrEqual'] = $params['CreatedTo'] . ' 23:59:59';
         }
-        unset($params['IsScanned'], $params['MemberID'], $params['Action']);
 
         return $filter;
     }
