@@ -87,11 +87,9 @@ if (class_exists(AbstractQueuedJob::class)) {
          */
         public function queueMyselfIfNeeded(): ?int
         {
-            // NOTE(Jake): Perhaps add '$cache' flag here to stop
-            // thrashing in ClamAVScan::onAfterWrite()
+            // Runs on every ClamAVScan write, so use a cheap SELECT ... LIMIT 1 existence check
             $clamAV = Injector::inst()->get(ClamAV::class);
-            $list = $clamAV->getFailedToScanFileList();
-            if (!$list || $list->count() == 0) {
+            if (!$clamAV->hasFailedToScanFiles()) {
                 return null;
             }
 

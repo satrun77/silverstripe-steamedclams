@@ -3,3 +3,8 @@
 composer.lock
 public/
 vendor/
+# Local dev-site scaffolding only — not part of the shipped vendormodule.
+app/
+.env
+.php-cs-fixer.cache
+.docs/
