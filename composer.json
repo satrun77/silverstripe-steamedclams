@@ -25,6 +25,7 @@
     "phpunit/phpunit": "^11.5"
   },
   "suggest": {
+    "silverstripe/gridfieldqueuedexport": "For exporting ClamAV scan results to CSV.",
     "silverstripe/queuedjobs": "For allowing ClamAV 'missed files' scan to be run from a queued job. Otherwise you can run the tasks manually or via cronjob."
   },
   "extra": {

@@ -7,14 +7,15 @@ use SilverStripe\AssetAdmin\Controller\AssetAdmin;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPResponse;
 use SilverStripe\Core\Injector\Injector;
-use SilverStripe\Forms\GridField\GridFieldAddExistingAutocompleter;
 use SilverStripe\Forms\GridField\GridFieldAddNewButton;
 use SilverStripe\Forms\GridField\GridFieldConfig;
 use SilverStripe\Forms\GridField\GridFieldDeleteAction;
 use SilverStripe\Forms\GridField\GridFieldEditButton;
+use SilverStripe\Forms\GridField\GridFieldExportButton;
 use SilverStripe\Forms\GridField\GridFieldPrintButton;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\ReadonlyField;
+use SilverStripe\GridfieldQueuedExport\Forms\GridFieldQueuedExportButton;
 use SilverStripe\Security\Permission;
 use SilverStripe\View\Requirements;
 use Symbiote\SteamedClams\ClamAV;
@@ -76,7 +77,16 @@ class ClamAVAdmin extends ModelAdmin
             $gridField = $fields->dataFieldByName($insertBeforeFieldName);
             if ($gridField) {
                 $gridConfig = $gridField->getConfig();
+                $gridConfig->removeComponentsByType(GridFieldPrintButton::class);
                 $gridConfig->removeComponentsByType(GridFieldAddNewButton::class);
+                $gridConfig->removeComponentsByType(GridFieldExportButton::class);
+
+                if (class_exists(GridFieldQueuedExportButton::class)) {
+                    $queuedExportBtn = GridFieldQueuedExportButton::create('buttons-before-left');
+                    $queuedExportBtn->setExportColumns($this->getExportFields());
+                    $gridConfig->addComponent($queuedExportBtn);
+                }
+
                 // NOTE(Jake): These buttons shouldn't be necessary, but incase you want to bring
                 //             them back, add '?fullview'
                 if ((Permission::check('ADMIN') && isset($_GET['fullview'])) === false) {
